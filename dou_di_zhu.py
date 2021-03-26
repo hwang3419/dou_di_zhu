@@ -308,7 +308,7 @@ class Player:
                 yield NextHand
 
     def getAllHand(self):
-        for i in range(len(self.cards)-1, 0, -1):
+        for i in range(len(self.cards), 0, -1):
             for nextInput in combinations(self.cards, i):
                 result = self.getPossibleHand(nextInput)
                 if result:
@@ -320,7 +320,7 @@ class Match:
     def __init__(self):
         pass
 
-    @functools.lru_cache(maxsize=None)
+    #@functools.lru_cache(maxsize=None)
     def startA(self, a, b):
         '''
         rule: A move first, and target is let A used all cards first
@@ -337,6 +337,7 @@ class Match:
             result = self.nextB(
                 hand, Player(leftCards), b)
             if isinstance(result, list) and result[0] == 'b':
+                hands['b'] = True
                 continue
             if result:
                 hands[('a', tuple(hand.cardsValue))] = result
@@ -344,11 +345,14 @@ class Match:
                 result2 = self.startA(
                     Player(leftCards), b)
                 if not result2 or (isinstance(result2, list) and result2[0] == 'b'):
+                    hands['b'] = True
                     continue
                 hands[('a', tuple(hand.cardsValue))] = result2
+        if list(hands.keys()) == ['b']:
+            return ['b']
         return hands
 
-    @functools.lru_cache(maxsize=None)
+    #@functools.lru_cache(maxsize=None)
     def startB(self, a, b):
         '''
         rule: A move first, and target is let A used all cards first
@@ -365,6 +369,7 @@ class Match:
             result = self.nextA(
                 hand, a, Player(leftCards))
             if isinstance(result, list) and result[0] == 'b':
+                hands['b'] = True
                 continue
             if result:
                 hands[('b', tuple(hand.cardsValue))] = result
@@ -372,11 +377,14 @@ class Match:
                 result2 = self.startB(
                     a, Player(leftCards))
                 if not result2 or (isinstance(result2, list) and result2[0] == 'b'):
+                    hands['b'] = True
                     continue
                 hands[('b', tuple(hand.cardsValue))] = result2
+        if list(hands.keys()) == ['b']:
+            return ['b']
         return hands
 
-    @functools.lru_cache(maxsize=None)
+    #@functools.lru_cache(maxsize=None)
     def nextB(self, InComehand, a, b):
         player = b
         hands = {}
@@ -389,19 +397,22 @@ class Match:
                 return ['b', hand.cardsValue]
             result = self.nextA(hand, a, Player(leftCards))
             if isinstance(result, list) and result[0] == 'b':
+                hands['b'] = True
                 continue
             if not result:
                 result2 = self.startB(
                     a, Player(leftCards))
-                if not result2 or (isinstance(result2, list) and result2[0] == 'b'):
+                if isinstance(result2, list) and result2[0] == 'b':
+                    hands['b'] = True
                     continue
                 hands[('b', tuple(hand.cardsValue))] = result2
             else:
                 hands[('b', tuple(hand.cardsValue))] = result
-
+        if list(hands.keys()) == ['b']:
+            return ['b']
         return hands
 
-    @functools.lru_cache(maxsize=None)
+    #@functools.lru_cache(maxsize=None)
     def nextA(self, InComehand, a, b):
         player = a
         hands = {}
@@ -414,15 +425,19 @@ class Match:
                 return ['a', hand.cardsValue]
             result = self.nextB(hand, Player(leftCards), b)
             if isinstance(result, list) and result[0] == 'b':
+                hands['b'] = True
                 continue
             if not result:
                 result2 = self.startA(
                     Player(leftCards), b)
                 if isinstance(result2, list) and result2[0] == 'b':
+                    hands['b'] = True
                     continue
                 hands[('a', tuple(hand.cardsValue))] = result2
             else:
                 hands[('a', tuple(hand.cardsValue))] = result
+        if list(hands.keys()) == ['b']:
+            return ['b']
         return hands
 
 
@@ -438,9 +453,9 @@ def printHelper(data, x=0):
 
 
 if __name__ == '__main__':
-    #pa = Player('j77665544')
-    #pb = Player('aqq88876')
-    pa = Player('j776655')
-    pb = Player('aqq')
+    pa = Player('j77665544')
+    pb = Player('aqq88876')
+    #pa = Player('3344')
+    #pb = Player('ak')
     hands = Match().startA(pa, pb)
     printHelper(hands)
