@@ -301,11 +301,14 @@ class Player:
         # print(all_possible_hands)
         return all_possible_hands[0]
 
-    def getAllNextHand(self, hand):
-        for nextInput in combinations(self.cards, len(hand.cardsValue)):
-            NextHand = self.getPossibleHand(nextInput)
-            if NextHand is not None and NextHand > hand:
-                yield NextHand
+    def getAllNextHand(self, hand=None):
+        if hand is None:
+            yield from self.getAllHand()
+        else:
+            for nextInput in combinations(self.cards, len(hand.cardsValue)):
+                NextHand = self.getPossibleHand(nextInput)
+                if NextHand is not None and NextHand > hand:
+                    yield NextHand
 
     def getAllHand(self):
         for i in range(len(self.cards), 0, -1):
@@ -315,130 +318,56 @@ class Player:
                     yield result
 
 
+def removeList(lst, delList):
+    result = lst[:]
+    for item in delList:
+        result.remove(item)
+    return result
+
+
 class Match:
 
     def __init__(self):
         pass
 
-    #@functools.lru_cache(maxsize=None)
-    def startA(self, a, b):
-        '''
-        rule: A move first, and target is let A used all cards first
-        '''
-        player = a
+    def nextA(self, a, b, inComeHand=None):
         hands = {}
-        for hand in player.getAllHand():
-            leftCards = list(player.cards)
-            if hand is not None:
-                for card in hand.cards:
-                    leftCards.remove(card)
-            if not leftCards:
-                return ['a', hand.cardsValue]
-            result = self.nextB(
-                hand, Player(leftCards), b)
-            if isinstance(result, list) and result[0] == 'b':
-                hands['b'] = True
-                continue
-            if result:
-                hands[('a', tuple(hand.cardsValue))] = result
-            else:
-                result2 = self.startA(
-                    Player(leftCards), b)
-                if not result2 or (isinstance(result2, list) and result2[0] == 'b'):
-                    hands['b'] = True
-                    continue
-                hands[('a', tuple(hand.cardsValue))] = result2
-        if list(hands.keys()) == ['b']:
-            return ['b']
-        return hands
-
-    #@functools.lru_cache(maxsize=None)
-    def startB(self, a, b):
-        '''
-        rule: A move first, and target is let A used all cards first
-        '''
-        player = b
-        hands = {}
-        for hand in player.getAllHand():
-            leftCards = list(player.cards)
-            if hand is not None:
-                for card in hand.cards:
-                    leftCards.remove(card)
-            if not leftCards:
-                return ['b', hand.cardsValue]
-            result = self.nextA(
-                hand, a, Player(leftCards))
-            if isinstance(result, list) and result[0] == 'b':
-                hands['b'] = True
-                continue
-            if result:
-                hands[('b', tuple(hand.cardsValue))] = result
-            else:
-                result2 = self.startB(
-                    a, Player(leftCards))
-                if not result2 or (isinstance(result2, list) and result2[0] == 'b'):
-                    hands['b'] = True
-                    continue
-                hands[('b', tuple(hand.cardsValue))] = result2
-        if list(hands.keys()) == ['b']:
-            return ['b']
-        return hands
-
-    #@functools.lru_cache(maxsize=None)
-    def nextB(self, InComehand, a, b):
-        player = b
-        hands = {}
-        for hand in player.getAllNextHand(InComehand):
-            leftCards = list(player.cards)
-            if hand is not None:
-                for card in hand.cards:
-                    leftCards.remove(card)
-            if not leftCards:
-                return ['b', hand.cardsValue]
-            result = self.nextA(hand, a, Player(leftCards))
-            if isinstance(result, list) and result[0] == 'b':
-                hands['b'] = True
-                continue
+        if not a.cards:
+            return {True: inComeHand}
+        if not b.cards:
+            return False
+        gen = set(a.getAllNextHand(inComeHand))
+        # gen = list(gen) or [None]
+        for hand in gen:
+            result = self.nextB(Player(
+                removeList(a.cards, hand.cards if hand else [])), b, hand)
+            if result is False: continue
             if not result:
-                result2 = self.startB(
-                    a, Player(leftCards))
-                if isinstance(result2, list) and result2[0] == 'b':
-                    hands['b'] = True
-                    continue
-                hands[('b', tuple(hand.cardsValue))] = result2
-            else:
-                hands[('b', tuple(hand.cardsValue))] = result
-        if list(hands.keys()) == ['b']:
-            return ['b']
-        return hands
+                result = self.nextA(Player(removeList(
+                    a.cards, hand.cards if hand else [])), b)
+            if result is False: continue
+            hands['a', tuple(hand.cardsValue if hand else []) ] = result
+        return hands if hands else False
 
-    #@functools.lru_cache(maxsize=None)
-    def nextA(self, InComehand, a, b):
-        player = a
+    def nextB(self, a, b, inComeHand=None):
         hands = {}
-        for hand in player.getAllNextHand(InComehand):
-            leftCards = list(player.cards)
-            if hand is not None:
-                for card in hand.cards:
-                    leftCards.remove(card)
-            if not leftCards:
-                return ['a', hand.cardsValue]
-            result = self.nextB(hand, Player(leftCards), b)
-            if isinstance(result, list) and result[0] == 'b':
-                hands['b'] = True
-                continue
+        if not a.cards:
+            return True
+        if not b.cards:
+            return False
+        gen = set(b.getAllNextHand(inComeHand))
+        gen = list(gen) or [None]
+        for hand in gen:
+            result = self.nextA(a, Player(
+                removeList(b.cards, hand.cards if hand else [])), hand)
+            if result is False: continue
             if not result:
-                result2 = self.startA(
-                    Player(leftCards), b)
-                if isinstance(result2, list) and result2[0] == 'b':
-                    hands['b'] = True
-                    continue
-                hands[('a', tuple(hand.cardsValue))] = result2
-            else:
-                hands[('a', tuple(hand.cardsValue))] = result
-        if list(hands.keys()) == ['b']:
-            return ['b']
-        return hands
+                result = self.nextB(a, Player(
+                    removeList(b.cards, hand.cards if hand else [])))
+            if result is False: continue
+            hands['b', tuple(hand.cardsValue if hand else [])] = result
+
+        return hands if hands else False
 
 
 def printHelper(data, x=0):
@@ -451,11 +380,27 @@ def printHelper(data, x=0):
     else:
         print(' '*x, data)
 
+def startA(pa, pb):
+    gen = set(pa.getAllNextHand())
+    hands = {}
+    for hand in gen:
+        y = Match().nextB(Player(
+                removeList(pa.cards, hand.cards if hand else [])), pb, hand)
+        if y:
+            hands['a',tuple(hand.cardsValue)] = y
+            break
+        
+        
+    print(hands)
+    return hands
+
 
 if __name__ == '__main__':
-    pa = Player('j77665544')
-    pb = Player('aqq88876')
-    #pa = Player('3344')
-    #pb = Player('ak')
-    hands = Match().startA(pa, pb)
+    pa = Player('2q999643')
+    #pa = Player('2q63')
+    pb = Player('zaaj43')
+    #pa = Player('3478')
+    #pb = Player('47')
+    hands = startA(pa, pb)
     printHelper(hands)
+    print(type(hands))
