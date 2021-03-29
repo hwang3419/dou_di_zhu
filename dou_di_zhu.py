@@ -358,7 +358,7 @@ class Match:
         for hand in gen:
             result = self.nextA(a, Player(removeList(
                     b.cards, hand.cards)), hand)
-            if result is False: continue
+            if result is False: return False
             hands['b', tuple(hand.cardsValue)] = result
 
         return hands if hands else False
@@ -382,17 +382,15 @@ def startA(pa, pb):
                 removeList(pa.cards, hand.cards if hand else [])), pb, hand)
         if y:
             hands['a',tuple(hand.cardsValue)] = y
-            break
         
         
         
-    print(hands)
     return hands
 
 
 if __name__ == '__main__':
-    pa = Player('2q63')
-    pa = Player('2q63')
+    pa = Player('2q639994')
+    pa = Player('2q639994')
     pb = Player('zaaj43')
     #pa = Player('3478')
     #pb = Player('47')
