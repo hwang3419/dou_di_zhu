@@ -333,21 +333,18 @@ class Match:
     def nextA(self, a, b, inComeHand=None):
         hands = {}
         if not a.cards:
-            return {True: inComeHand}
+            return True
         if not b.cards:
             return False
         gen = set(a.getAllNextHand(inComeHand))
-        # gen = list(gen) or [None]
+        if not gen:
+            return self.nextB(a, b)
         for hand in gen:
             result = self.nextB(Player(
-                removeList(a.cards, hand.cards if hand else [])), b, hand)
+                removeList(a.cards, hand.cards)), b, hand)
             if result is False: continue
-            if not result:
-                result = self.nextA(Player(removeList(
-                    a.cards, hand.cards if hand else [])), b)
-            if result is False: continue
-            hands['a', tuple(hand.cardsValue if hand else []) ] = result
-        return hands if hands else False
+            hands['a', tuple(hand.cardsValue) ] = result
+        return hands if hands else self.nextB(a, b)
 
     def nextB(self, a, b, inComeHand=None):
         hands = {}
@@ -356,16 +353,13 @@ class Match:
         if not b.cards:
             return False
         gen = set(b.getAllNextHand(inComeHand))
-        gen = list(gen) or [None]
+        if not gen:
+            return self.nextA(a, b)
         for hand in gen:
-            result = self.nextA(a, Player(
-                removeList(b.cards, hand.cards if hand else [])), hand)
+            result = self.nextA(a, Player(removeList(
+                    b.cards, hand.cards)), hand)
             if result is False: continue
-            if not result:
-                result = self.nextB(a, Player(
-                    removeList(b.cards, hand.cards if hand else [])))
-            if result is False: continue
-            hands['b', tuple(hand.cardsValue if hand else [])] = result
+            hands['b', tuple(hand.cardsValue)] = result
 
         return hands if hands else False
 
@@ -391,13 +385,14 @@ def startA(pa, pb):
             break
         
         
+        
     print(hands)
     return hands
 
 
 if __name__ == '__main__':
-    pa = Player('2q999643')
-    #pa = Player('2q63')
+    pa = Player('2q63')
+    pa = Player('2q63')
     pb = Player('zaaj43')
     #pa = Player('3478')
     #pb = Player('47')
