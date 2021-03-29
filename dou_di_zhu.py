@@ -318,19 +318,31 @@ class Player:
                     yield result
 
 
-def removeList(lst, delList):
-    result = lst[:]
-    for item in delList:
-        result.remove(item)
-    return result
-
-
 class Match:
 
     def __init__(self):
         pass
 
+    def removeHand(self, player, hand=None):
+        result = player.cards[:]
+        delList = hand.cards if hand else []
+        for item in delList:
+            result.remove(item)
+        return Player(result)
+
+    def startA(self, pa, pb):
+        gen = set(pa.getAllNextHand())
+        hands = {}
+        for hand in gen:
+            y = Match().nextB(pa, pb, hand)
+            if y:
+                hands['a', tuple(hand.cardsValue)] = y
+                break
+
+        return hands
+
     def nextA(self, a, b, inComeHand=None):
+        b = self.removeHand(b, inComeHand)
         hands = {}
         if not a.cards:
             return True
@@ -340,13 +352,14 @@ class Match:
         if not gen:
             return self.nextB(a, b)
         for hand in gen:
-            result = self.nextB(Player(
-                removeList(a.cards, hand.cards)), b, hand)
-            if result is False: continue
-            hands['a', tuple(hand.cardsValue) ] = result
+            result = self.nextB(a, b, hand)
+            if result is False:
+                continue
+            hands['a', tuple(hand.cardsValue)] = result
         return hands if hands else self.nextB(a, b)
 
     def nextB(self, a, b, inComeHand=None):
+        a = self.removeHand(a, inComeHand)
         hands = {}
         if not a.cards:
             return True
@@ -356,9 +369,9 @@ class Match:
         if not gen:
             return self.nextA(a, b)
         for hand in gen:
-            result = self.nextA(a, Player(removeList(
-                    b.cards, hand.cards)), hand)
-            if result is False: return False
+            result = self.nextA(a, b, hand)
+            if result is False:
+                return False
             hands['b', tuple(hand.cardsValue)] = result
 
         return hands if hands else False
@@ -374,26 +387,13 @@ def printHelper(data, x=0):
     else:
         print(' '*x, data)
 
-def startA(pa, pb):
-    gen = set(pa.getAllNextHand())
-    hands = {}
-    for hand in gen:
-        y = Match().nextB(Player(
-                removeList(pa.cards, hand.cards if hand else [])), pb, hand)
-        if y:
-            hands['a',tuple(hand.cardsValue)] = y
-        
-        
-        
-    return hands
-
 
 if __name__ == '__main__':
-    pa = Player('2q639994')
-    pa = Player('2q639994')
-    pb = Player('zaaj43')
+    pa = Player('yzkkqx993')
+    #pa = Player('2q639994')
+    pb = Player('2qqjjjjx')
     #pa = Player('3478')
     #pb = Player('47')
-    hands = startA(pa, pb)
+    hands = Match().startA(pa, pb)
     printHelper(hands)
     print(type(hands))
