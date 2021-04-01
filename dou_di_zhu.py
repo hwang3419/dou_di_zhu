@@ -15,31 +15,32 @@ class NotValidInput(Exception):
     pass
 
 
+VALUEMAP = {
+    '3': 3,
+    '4': 4,
+    '5': 5,
+    '6': 6,
+    '7': 7,
+    '8': 8,
+    '9': 9,
+    'x': 10,
+    'j': 11,
+    'q': 12,
+    'k': 13,
+    'a': 14,
+    '2': 16,
+    'y': 20,  # joker1
+    'z': 30,  # joker2
+}
+
+
 class Hand():
     handName = None
 
-    valueMap = {
-        '3': 3,
-        '4': 4,
-        '5': 5,
-        '6': 6,
-        '7': 7,
-        '8': 8,
-        '9': 9,
-        'x': 10,
-        'j': 11,
-        'q': 12,
-        'k': 13,
-        'a': 14,
-        '2': 16,
-        'y': 20,  # joker1
-        'z': 30,  # joker2
-    }
-
     def __init__(self, cards: list):
         self.cards = sorted([card.lower() for card in cards],
-                            key=lambda x: self.valueMap.get(x))
-        self.cardsValue = [self.valueMap[card] for card in self.cards]
+                            key=lambda x: VALUEMAP.get(x))
+        self.cardsValue = [VALUEMAP[card] for card in self.cards]
         self.cardsValue.sort()
         self.isBomb = False
         self.majorCard = self.cardsValue[0]
@@ -174,7 +175,7 @@ class FullHouse(Hand):
 
     def __init__(self, cards):
         self.cards = [card.lower() for card in cards]
-        self.cardsValue = [self.valueMap[card] for card in self.cards]
+        self.cardsValue = [VALUEMAP[card] for card in self.cards]
         self.isBomb = False
         self.cardsCounter = Counter(self.cardsValue)
         for k, v in self.cardsCounter.items():
@@ -249,52 +250,56 @@ class Bomb(Hand):
         return False
 
     def isComparable(self, other):
-        if len(self.cardsValue) in (2, 4) and\
-                len(other.cardsValue) in (2, 4) and \
-                self.handName == other.handName:
+        if len(self.cardsValue) in (2, 4):
             return True
-        raise(NotSameLength('%s, %s are not in same length' %
+        raise(NotValidInput('%s, %s not valid bomb input' %
                             (self.cardsValue, other.cardsValue)))
 
     def __lt__(self, other):
-        if len(other.cardsValue) == 2:
-            return True
-        if len(self.cardsValue) == 2:
+        if other.isBomb:
+            if len(other.cardsValue) == 2:
+                return True
+            return self.majorCard < other.majorCard
+        else:
             return False
-        self.isComparable(other)
-        return self.cardsValue[0] < other.cardsValue[0]
 
     def __gt__(self, other):
-        if len(other.cardsValue) == 2:
-            return False
-        if len(self.cardsValue) == 2:
+        if other.isBomb:
+            if len(other.cardsValue) == 2:
+                return False
+            return self.majorCard > other.majorCard
+        else:
             return True
-        self.isComparable(other)
-        return self.cardsValue[0] > other.cardsValue[0]
+
+
+cardsCountTypeMap = {
+    1: [One],
+    2: [Pair, Bomb],
+    3: [Triple],
+    4: [Bomb, FullHouseWithOne],
+    5: [Flush, FullHouse],
+    6: [Flush, FourWithTwo, MultiPair, MultiTriple],
+    7: [Flush],
+    8: [Flush, MultiPair],
+    9: [Flush, MultiTriple]
+}
 
 
 class Player:
-    cardsCountTypeMap = {
-        1: [One],
-        2: [Pair, Bomb],
-        3: [Triple],
-        4: [Bomb, FullHouseWithOne],
-        5: [Flush, FullHouse],
-        6: [Flush, FourWithTwo, MultiPair, MultiTriple],
-        7: [Flush],
-        8: [Flush, MultiPair],
-        9: [Flush, MultiTriple]
-    }
 
     def __init__(self, cards):
         self.cards = list(cards)
 
-    def getPossibleHand(self, cardsInput):
+    def getPossibleHand(self, cardsInput, opponentType=None):
         count = len(cardsInput)
         if count > 9:
             count = 7
+        if opponentType:
+            types = [opponentType]
+        else:
+            types = cardsCountTypeMap[count]
         all_possible_hands = [handType(
-            cardsInput) for handType in self.cardsCountTypeMap[count]
+            cardsInput) for handType in types
             if handType(cardsInput).isValid()]
         if not all_possible_hands:
             return None
@@ -305,14 +310,24 @@ class Player:
         if hand is None:
             yield from self.getAllHand()
         else:
-            for nextInput in combinations(self.cards, len(hand.cardsValue)):
-                NextHand = self.getPossibleHand(nextInput)
+            for nextInput in set(combinations(self.cards, len(hand.cardsValue))):
+                NextHand = self.getPossibleHand(nextInput, type(hand))
                 if NextHand is not None and NextHand > hand:
                     yield NextHand
+            # check bomb
+            if not hand.isBomb and len(self.cards) >= 4:
+                for nextInput in set(combinations(self.cards, 4)):
+                    NextHand = self.getPossibleHand(nextInput, Bomb)
+                    if NextHand is not None and NextHand > hand:
+                        yield NextHand
+            if 'y' in self.cards and 'z' in self.cards:
+                yield Bomb('yz')
 
     def getAllHand(self):
         for i in range(len(self.cards), 0, -1):
-            for nextInput in combinations(self.cards, i):
+            combs = set(
+                [nextInput for nextInput in combinations(self.cards, i)])
+            for nextInput in combs:
                 result = self.getPossibleHand(nextInput)
                 if result:
                     yield result
@@ -330,49 +345,64 @@ class Match:
             result.remove(item)
         return Player(result)
 
-    def startA(self, pa, pb):
-        gen = set(pa.getAllNextHand())
+    def startA(self, a, b):
+        gen = set(a.getAllNextHand())
         hands = {}
         for hand in gen:
-            y = Match().nextB(pa, pb, hand)
+            y = Match().nextB(a, b, 'a', hand)
             if y:
-                hands['a', tuple(hand.cardsValue)] = y
-                break
-
+                hands['a', tuple(hand.cards)] = y
         return hands
 
-    def nextA(self, a, b, inComeHand=None):
-        b = self.removeHand(b, inComeHand)
+    def startB(self, a, b):
+        gen = set(b.getAllNextHand())
         hands = {}
-        if not a.cards:
-            return True
-        if not b.cards:
-            return False
-        gen = set(a.getAllNextHand(inComeHand))
-        if not gen:
-            return self.nextB(a, b)
         for hand in gen:
-            result = self.nextB(a, b, hand)
-            if result is False:
-                continue
-            hands['a', tuple(hand.cardsValue)] = result
-        return hands if hands else self.nextB(a, b)
+            y = Match().nextA(a, b, 'b', hand)
+            if not y:
+                return
+            if y:
+                hands['b', tuple(hand.cards)] = y
+        return hands
 
-    def nextB(self, a, b, inComeHand=None):
-        a = self.removeHand(a, inComeHand)
+    def nextA(self, a, b, starter, opponentHand=None):
+        b = self.removeHand(b, opponentHand)
         hands = {}
         if not a.cards:
             return True
         if not b.cards:
             return False
-        gen = set(b.getAllNextHand(inComeHand))
+        gen = set(a.getAllNextHand(opponentHand))
         if not gen:
-            return self.nextA(a, b)
+            return self.startB(a, b)
         for hand in gen:
-            result = self.nextA(a, b, hand)
-            if result is False:
-                return False
-            hands['b', tuple(hand.cardsValue)] = result
+            result = self.nextB(a, b, starter, hand)
+            if not result:
+                if starter == 'b' or result is None:
+                    return None
+                continue
+            hands['a', tuple(hand.cards)] = result
+        return hands if hands else self.startB(a, b)
+
+    def nextB(self, a, b, starter, opponentHand=None):
+        a = self.removeHand(a, opponentHand)
+        hands = {}
+        if not a.cards:
+            return True
+        if not b.cards:
+            return False
+        gen = set(b.getAllNextHand(opponentHand))
+        if not gen:
+            return self.startA(a, b)
+        for hand in gen:
+            if not self.removeHand(b, hand).cards:
+                return None
+            result = self.nextA(a, b, starter, hand)
+            if not result:
+                if starter == 'b' or result is None:
+                    return None
+                continue
+            hands['b', tuple(hand.cards)] = result
 
         return hands if hands else False
 
@@ -389,11 +419,20 @@ def printHelper(data, x=0):
 
 
 if __name__ == '__main__':
-    pa = Player('yzkkqx993')
-    #pa = Player('2q639994')
-    pb = Player('2qqjjjjx')
+    #pa = Player('yzkkqx993')
+    #pa = Player('yzkk99')
+    pa = Player('yzkk99')
+    pb = Player('jjjjx')
     #pa = Player('3478')
     #pb = Player('47')
-    hands = Match().startA(pa, pb)
+    def teststartA(a, b):
+        gen = set(a.getAllNextHand())
+        hands = {}
+        for hand in gen:
+            y = Match().nextB(a, b, 'a', hand)
+            if y:
+                hands['a', tuple(hand.cards)] = y
+        return hands
+    hands = teststartA(pa, pb)
     printHelper(hands)
     print(type(hands))
