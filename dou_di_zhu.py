@@ -378,8 +378,6 @@ class Match:
         for hand in gen:
             result = self.nextB(a, b, starter, hand)
             if not result:
-                if starter == 'b' or result is None:
-                    return None
                 continue
             hands['a', tuple(hand.cards)] = result
         return hands if hands else self.startB(a, b)
@@ -421,8 +419,8 @@ def printHelper(data, x=0):
 if __name__ == '__main__':
     #pa = Player('yzkkqx993')
     #pa = Player('yzkk99')
-    pa = Player('yzkk99')
-    pb = Player('jjjjx')
+    pa = Player('yzkkq993')
+    pb = Player('2qqjjjjx')
     #pa = Player('3478')
     #pb = Player('47')
     def teststartA(a, b):
