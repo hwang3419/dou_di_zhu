@@ -401,6 +401,12 @@ class Match:
                     return None
                 continue
             hands['b', tuple(hand.cards)] = result
+        hand = self.startA(a, b)
+        if hand:
+            hands['b','pass'] = hand
+        else:
+            return
+
 
         return hands if hands else False
 
@@ -419,7 +425,7 @@ def printHelper(data, x=0):
 if __name__ == '__main__':
     #pa = Player('yzkkqx993')
     #pa = Player('yzkk99')
-    pa = Player('yzkkq993')
+    pa = Player('yzkkqx993')
     pb = Player('2qqjjjjx')
     #pa = Player('3478')
     #pb = Player('47')
